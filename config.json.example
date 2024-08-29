@@ -1,0 +1,38 @@
+{
+    "telegram":
+    {
+        "telegram_chat_id": "2******",
+        "bot_token": "747*******:AAF3a55Mt59p*********"
+    },
+    "groups":
+    {
+        "Автогараж": {
+            "group_to_upload": "https://vk.com/a******",
+            "group_admin": {
+                "logins": "login",
+                "passwords": "password",
+                "token": "token"
+            },
+            "group_description": "Подписывайтесь! @******",
+            "accounts": {
+                "login": "+7******",
+                "password": "password",
+                "tokens": 
+                [
+                    "vk1.a.ZYcA************",
+                    "vk1.a.DPPhi******"
+                ]
+            },
+            "groups_from_download": [
+                "https://vk.com/a******",
+                "https://vk.com/k******",
+                "https://vk.com/r******"
+            ],
+            "youtube_user": {
+                "login": "login",
+                "password": "password",
+                "token": "token"
+            }
+        }
+    }
+}

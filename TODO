@@ -1,0 +1,2 @@
+    raise DownloadError(message, exc_info)
+yt_dlp.utils.DownloadError: ERROR: [vk] 456239895: Algorithms determined that the video may contain adult content. Such videos can't be viewed on external sites
