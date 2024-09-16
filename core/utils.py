@@ -1,12 +1,13 @@
 import asyncio
 import json
-import os
 import re
 
 import aiofiles
 import vk_api
 from colorama import Fore, init
 from vk_api.exceptions import ApiError
+
+from core.logger import log
 
 init(autoreset=True)
 
@@ -71,7 +72,7 @@ async def read_proxies(file_path):
                 ip, port, username, password = proxy.split(':')
                 proxies.append(f'http://{username}:{password}@{ip}:{port}')
             else:
-                print(Fore.RED + f'Неверный формат прокси: {proxy}')
+                log.error(f'Неверный формат прокси: {proxy}')
     return proxies
 
 
@@ -82,7 +83,7 @@ async def validate_token(token):
         vk.account.getInfo()
         return token
     except (ApiError, Exception) as e:
-        print(Fore.RED + f'Ошибка при проверке токена {token}: {e}')
+        log.error(f'Ошибка при проверке токена {token}: {e}')
         return None
 
 

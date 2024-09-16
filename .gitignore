@@ -162,6 +162,5 @@ cython_debug/
 #.idea/
 config.py
 config.json
-cache
 clips
 test*
