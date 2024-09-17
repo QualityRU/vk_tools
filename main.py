@@ -8,16 +8,16 @@ from core.utils import MethodDict, read_config
 from core.vk import VKDownloader, VKUploader
 
 
-async def download(vk, groups, limit=5):
+async def download(vk, groups, cache_name, limit=5):
     log.info(Fore.YELLOW + 'Начинается загрузка...')
-    urls = await vk.fetch_video_urls(groups, limit)
-    await asyncio.gather(*[vk.download_video(url, 'vk') for url in urls])
+    urls = await vk.fetch_video_urls(groups, cache_name, limit)
+    await asyncio.gather(*[vk.download_video(url, cache_name) for url in urls])
     log.info(Fore.GREEN + 'Загрузка завершена.')
 
 
-async def upload(uploader, path, group, desc):
+async def upload(uploader, path, group, cache_name, desc):
     log.info(Fore.YELLOW + 'Начинается выгрузка...')
-    await uploader.upload_videos(path, group, desc)
+    await uploader.upload_videos(path, group, cache_name, desc)
     log.info(Fore.GREEN + 'Выгрузка завершена.')
 
 
@@ -36,7 +36,11 @@ async def main():
     try:
         await asyncio.gather(
             schedule(
-                download, 3600, vk, cfg.groups.Автогараж.groups_from_download
+                download,
+                3600,
+                vk,
+                cfg.groups.Автогараж.groups_from_download,
+                cfg.groups.Автогараж.cache_name,
             ),
             schedule(
                 upload,
@@ -44,6 +48,7 @@ async def main():
                 uploader,
                 'clips',
                 cfg.groups.Автогараж.group_to_upload,
+                cfg.groups.Автогараж.cache_name,
                 cfg.groups.Автогараж.group_description,
             ),
         )

@@ -62,20 +62,22 @@ class VKAPI:
 
 
 class VKDownloader(VKAPI):
-    async def fetch_video_urls(self, group_links, video_limit):
+    async def fetch_video_urls(self, group_links, cache_name, video_limit):
         video_urls = []
-        all_video_urls = await self.collect_all_video_urls(group_links)
+        all_video_urls = await self.collect_all_video_urls(
+            group_links, cache_name
+        )
         random.shuffle(all_video_urls)
 
         for video_url, video_id in all_video_urls:
             if len(video_urls) >= video_limit:
                 break
-            if not self.check_cache(video_id):
+            if not self.check_cache(video_id, cache_name):
                 video_urls.append(video_url)
 
         return video_urls[:video_limit]
 
-    async def collect_all_video_urls(self, group_links):
+    async def collect_all_video_urls(self, group_links, cache_name):
         all_video_urls = []
         random.shuffle(group_links)
 
@@ -97,7 +99,7 @@ class VKDownloader(VKAPI):
 
             while True:
                 video_urls_from_group = await self.get_random_videos(
-                    group_id, group_title, count_video
+                    group_id, cache_name, count_video
                 )
                 if video_urls_from_group:
                     all_video_urls.extend(video_urls_from_group)
@@ -115,7 +117,7 @@ class VKDownloader(VKAPI):
             log.error(f'Ошибка при получении количества видео: {e}')
             return 0
 
-    async def get_random_videos(self, group_id, group_title, count_video):
+    async def get_random_videos(self, group_id, cache_name, count_video):
         try:
             offset = random.randint(0, max(0, count_video - 1))
             response = self.vk_session.video.get(
@@ -126,14 +128,14 @@ class VKDownloader(VKAPI):
             return [
                 (video['player'], video['id'])
                 for video in items
-                if not self.check_cache(video['id'])
+                if not self.check_cache(video['id'], cache_name)
             ]
         except Exception as e:
             log.error(f'Ошибка при получении видео из группы {group_id}: {e}')
             return []
 
-    def check_cache(self, video_id):
-        cache_file = os.path.join('cache', 'vk.txt')
+    def check_cache(self, video_id, cache_name):
+        cache_file = os.path.join('cache', f'{cache_name}.txt')
         os.makedirs(os.path.dirname(cache_file), exist_ok=True)
 
         if not os.path.exists(cache_file):
@@ -142,16 +144,16 @@ class VKDownloader(VKAPI):
         with open(cache_file, 'r') as file:
             return video_id in file.read().splitlines()
 
-    def update_cache(self, video_id):
-        cache_file = os.path.join('cache', 'vk.txt')
+    def update_cache(self, video_id, cache_name):
+        cache_file = os.path.join('cache', f'{cache_name}.txt')
         with open(cache_file, 'a') as file:
             file.write(f'{video_id}\n')
 
-    async def download_video(self, video_url, group_title):
+    async def download_video(self, video_url, cache_name):
         video_id = re.search(r'id=(\d+)', video_url).group(1)
         save_dir = os.path.join('clips')
         os.makedirs(save_dir, exist_ok=True)
-        output_file = os.path.join(save_dir, f'{group_title}_{video_id}.mp4')
+        output_file = os.path.join(save_dir, f'{cache_name}_{video_id}.mp4')
 
         ydl_opts = {
             'outtmpl': output_file,
@@ -163,17 +165,19 @@ class VKDownloader(VKAPI):
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([video_url])
             log.info(Fore.CYAN + f'Клип успешно скачан: {output_file}')
-            self.update_cache(video_id)
+            self.update_cache(video_id, cache_name)
         except Exception:
             log.error(f'Ошибка скачивания: {traceback.format_exc()}')
 
 
 class VKUploader(VKAPI):
-    async def upload_videos(self, clips_path, group_to_upload, description=''):
+    async def upload_videos(
+        self, clips_path, group_to_upload, cache_name, description=''
+    ):
         group_upload_id, _ = await self.get_group_id_and_name(group_to_upload)
         for root, _, files in os.walk(clips_path):
             for file in files:
-                if file.endswith('.mp4'):
+                if file.startswith(cache_name) and file.endswith('.mp4'):
                     video_path = os.path.join(root, file)
                     success = await self.upload_clip(
                         abs(group_upload_id), video_path, description
