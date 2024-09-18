@@ -114,10 +114,14 @@ class VKDownloader(VKAPI):
             )
             return response.get('count', 0)
         except Exception as e:
-            log.error(f'Ошибка при получении количества видео из группы {group_link}: {e}')
+            log.error(
+                f'Ошибка при получении количества видео из группы {group_link}: {e}'
+            )
             return 0
 
-    async def get_random_videos(self, group_id, group_link, cache_name, count_video):
+    async def get_random_videos(
+        self, group_id, group_link, cache_name, count_video
+    ):
         try:
             offset = random.randint(0, max(0, count_video - 1))
             response = self.vk_session.video.get(
@@ -131,7 +135,9 @@ class VKDownloader(VKAPI):
                 if not self.check_cache(video['id'], cache_name)
             ]
         except Exception as e:
-            log.error(f'Ошибка при получении видео из группы {group_link}: {group_id}: {e}')
+            log.error(
+                f'Ошибка при получении видео из группы {group_link}: {group_id}: {e}'
+            )
             return []
 
     def check_cache(self, video_id, cache_name):
@@ -172,7 +178,12 @@ class VKDownloader(VKAPI):
 
 class VKUploader(VKAPI):
     async def upload_videos(
-        self, clips_path, group_to_upload, cache_name, description=''
+        self,
+        clips_path,
+        group_to_upload,
+        cache_name,
+        description='',
+        wallpost=0,
     ):
         group_upload_id, _ = await self.get_group_id_and_name(group_to_upload)
         for root, _, files in os.walk(clips_path):
@@ -192,13 +203,14 @@ class VKUploader(VKAPI):
                         await asyncio.sleep(900)
                     await asyncio.sleep(5)
 
-    async def upload_clip(self, group_upload_id, video_path, description=''):
+    async def upload_clip(
+        self, group_upload_id, video_path, description='', wallpost=0
+    ):
         try:
             a = self.vk_session.shortVideo.create(
                 group_id=group_upload_id,
                 v=5.241,
-                # wallpost=1,
-                wallpost=0,
+                wallpost=wallpost,
                 description=description,
                 file_size=getsize(video_path),
             )

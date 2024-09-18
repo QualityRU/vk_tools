@@ -17,7 +17,7 @@ async def download(vk, groups, cache_name, limit=5):
 
 async def upload(uploader, path, group, cache_name, desc):
     log.info(Fore.YELLOW + 'Начинается выгрузка...')
-    await uploader.upload_videos(path, group, cache_name, desc)
+    await uploader.upload_videos(path, group, cache_name, desc, wallpost=1)
     log.info(Fore.GREEN + 'Выгрузка завершена.')
 
 
