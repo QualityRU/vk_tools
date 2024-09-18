@@ -92,7 +92,7 @@ class VKDownloader(VKAPI):
                 )
                 continue
 
-            count_video = await self.get_video_count(group_id)
+            count_video = await self.get_video_count(group_id, group_link)
 
             if count_video == 0:
                 continue
@@ -107,14 +107,14 @@ class VKDownloader(VKAPI):
 
         return all_video_urls
 
-    async def get_video_count(self, group_id):
+    async def get_video_count(self, group_id, group_link):
         try:
             response = self.vk_session.video.get(
                 owner_id=group_id, album_id=-6, offset=0, count=1
             )
             return response.get('count', 0)
         except Exception as e:
-            log.error(f'Ошибка при получении количества видео: {e}')
+            log.error(f'Ошибка при получении количества видео из группы {group_link}: {e}')
             return 0
 
     async def get_random_videos(self, group_id, group_link, cache_name, count_video):
