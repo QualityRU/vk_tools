@@ -29,7 +29,7 @@ async def schedule(func, interval, *args):
 
 async def main():
     cfg = MethodDict(await read_config('config.json'))
-    tokens = cfg.groups.Автогараж.accounts.tokens
+    tokens = cfg.groups.Девушки.accounts.tokens
     vk = VKDownloader(tokens=tokens)
     uploader = VKUploader(tokens=tokens)
 
@@ -39,17 +39,17 @@ async def main():
                 download,
                 3600,
                 vk,
-                cfg.groups.Автогараж.groups_from_download,
-                cfg.groups.Автогараж.cache_name,
+                cfg.groups.Девушки.groups_from_download,
+                cfg.groups.Девушки.cache_name,
             ),
             schedule(
                 upload,
                 3600,
                 uploader,
                 'clips',
-                cfg.groups.Автогараж.group_to_upload,
-                cfg.groups.Автогараж.cache_name,
-                cfg.groups.Автогараж.group_description,
+                cfg.groups.Девушки.group_to_upload,
+                cfg.groups.Девушки.cache_name,
+                cfg.groups.Девушки.group_description,
             ),
         )
     except Exception:
