@@ -99,7 +99,7 @@ class VKDownloader(VKAPI):
 
             while True:
                 video_urls_from_group = await self.get_random_videos(
-                    group_id, cache_name, count_video
+                    group_id, group_link, cache_name, count_video
                 )
                 if video_urls_from_group:
                     all_video_urls.extend(video_urls_from_group)
@@ -117,7 +117,7 @@ class VKDownloader(VKAPI):
             log.error(f'Ошибка при получении количества видео: {e}')
             return 0
 
-    async def get_random_videos(self, group_id, cache_name, count_video):
+    async def get_random_videos(self, group_id, group_link, cache_name, count_video):
         try:
             offset = random.randint(0, max(0, count_video - 1))
             response = self.vk_session.video.get(
@@ -131,7 +131,7 @@ class VKDownloader(VKAPI):
                 if not self.check_cache(video['id'], cache_name)
             ]
         except Exception as e:
-            log.error(f'Ошибка при получении видео из группы {group_id}: {e}')
+            log.error(f'Ошибка при получении видео из группы {group_link}: {group_id}: {e}')
             return []
 
     def check_cache(self, video_id, cache_name):
