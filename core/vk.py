@@ -197,8 +197,8 @@ class VKUploader(VKAPI):
             a = self.vk_session.shortVideo.create(
                 group_id=group_upload_id,
                 v=5.241,
-                wallpost=1,
-                # wallpost=0,
+                # wallpost=1,
+                wallpost=0,
                 description=description,
                 file_size=getsize(video_path),
             )
