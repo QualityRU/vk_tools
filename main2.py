@@ -50,7 +50,6 @@ async def main():
                 cfg.groups.Девушки.group_to_upload,
                 cfg.groups.Девушки.cache_name,
                 cfg.groups.Девушки.group_description,
-                wallpost=1,
             ),
         )
     except Exception:
