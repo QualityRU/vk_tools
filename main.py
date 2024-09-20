@@ -50,6 +50,7 @@ async def main():
                 cfg.groups.Автогараж.group_to_upload,
                 cfg.groups.Автогараж.cache_name,
                 cfg.groups.Автогараж.group_description,
+                wallpost=1
             ),
         )
     except Exception:
