@@ -41,10 +41,10 @@ async def upload(uploader):
     log.info(Fore.GREEN + 'Выгрузка завершена.')
 
 
-async def schedule(func, interval, *args):
-    await func(*args)
+async def schedule(func, interval):
+    await func()
     await asyncio.sleep(interval)
-    await schedule(func, interval, *args)
+    await schedule(func, interval)
 
 
 async def main():
