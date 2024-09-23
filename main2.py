@@ -12,7 +12,7 @@ async def config():
     return MethodDict(await read_config('config.json'))
 
 
-async def download(downloader, limit=5):
+async def download(limit=5):
     cfg = await config()
     tokens = cfg.groups.Девушки.accounts.tokens
     downloader = VKDownloader(tokens=tokens)
@@ -27,7 +27,7 @@ async def download(downloader, limit=5):
     log.info(Fore.GREEN + 'Загрузка завершена.')
 
 
-async def upload(uploader):
+async def upload():
     cfg = await config()
     tokens = cfg.groups.Девушки.accounts.tokens
     uploader = VKUploader(tokens=tokens)
@@ -41,10 +41,10 @@ async def upload(uploader):
     log.info(Fore.GREEN + 'Выгрузка завершена.')
 
 
-async def schedule(func, interval):
-    await func()
+async def schedule(func, interval, *args):
+    await func(*args)
     await asyncio.sleep(interval)
-    await schedule(func, interval)
+    await schedule(func, interval, *args)
 
 
 async def main():
