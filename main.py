@@ -8,14 +8,34 @@ from core.utils import MethodDict, read_config
 from core.vk import VKDownloader, VKUploader
 
 
-async def download(vk, groups, cache_name, limit=5):
+async def config():
+    return MethodDict(await read_config('config.json'))
+
+
+async def download(downloader, limit=5):
+    cfg = await config()
+    tokens = cfg.groups.Автогараж.accounts.tokens
+    downloader = VKDownloader(tokens=tokens)
+    groups = cfg.groups.Автогараж.groups_from_download
+    cache_name = cfg.groups.Автогараж.cache_name
+
     log.info(Fore.YELLOW + 'Начинается загрузка...')
-    urls = await vk.fetch_video_urls(groups, cache_name, limit)
-    await asyncio.gather(*[vk.download_video(url, cache_name) for url in urls])
+    urls = await downloader.fetch_video_urls(groups, cache_name, limit)
+    await asyncio.gather(
+        *[downloader.download_video(url, cache_name) for url in urls]
+    )
     log.info(Fore.GREEN + 'Загрузка завершена.')
 
 
-async def upload(uploader, path, group, cache_name, desc):
+async def upload(uploader):
+    cfg = await config()
+    tokens = cfg.groups.Автогараж.accounts.tokens
+    uploader = VKUploader(tokens=tokens)
+    path = 'clips'
+    group = cfg.groups.Автогараж.group_to_upload
+    cache_name = cfg.groups.Автогараж.cache_name
+    desc = cfg.groups.Автогараж.group_description
+
     log.info(Fore.YELLOW + 'Начинается выгрузка...')
     await uploader.upload_videos(path, group, cache_name, desc, wallpost=0)
     log.info(Fore.GREEN + 'Выгрузка завершена.')
@@ -24,33 +44,14 @@ async def upload(uploader, path, group, cache_name, desc):
 async def schedule(func, interval, *args):
     await func(*args)
     await asyncio.sleep(interval)
-    await schedule(func, interval, *args)  # Рекурсивный вызов вместо цикла
+    await schedule(func, interval, *args)
 
 
 async def main():
-    cfg = MethodDict(await read_config('config.json'))
-    tokens = cfg.groups.Автогараж.accounts.tokens
-    vk = VKDownloader(tokens=tokens)
-    uploader = VKUploader(tokens=tokens)
-
     try:
         await asyncio.gather(
-            schedule(
-                download,
-                3600,
-                vk,
-                cfg.groups.Автогараж.groups_from_download,
-                cfg.groups.Автогараж.cache_name,
-            ),
-            schedule(
-                upload,
-                3600,
-                uploader,
-                'clips',
-                cfg.groups.Автогараж.group_to_upload,
-                cfg.groups.Автогараж.cache_name,
-                cfg.groups.Автогараж.group_description,
-            ),
+            schedule(func=download, interval=3600),
+            schedule(func=download, interval=3600),
         )
     except Exception:
         log.error(Fore.RED + f'Ошибка: {traceback.format_exc()}')
