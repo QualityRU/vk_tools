@@ -2,8 +2,10 @@ import asyncio
 import os
 import random
 import re
+import time
 import traceback
 from os.path import getsize
+import json
 
 import aiohttp
 import vk_api
@@ -46,6 +48,7 @@ class VKAPI:
 
         try:
             group_name = group_link.strip('/').split('/')[-1]
+            print(group_name)
             group_info = self.vk_session.groups.getById(
                 group_id=group_name, fields='id'
             )[0]
@@ -209,40 +212,45 @@ class VKUploader(VKAPI):
         try:
             a = self.vk_session.shortVideo.create(
                 group_id=group_upload_id,
-                v=5.241,
+                v=5.251,
                 # wallpost=wallpost,
                 wallpost=1,
                 description=description,
                 file_size=getsize(video_path),
             )
             upload_url = a['upload_url']
-            data = {'file': open(video_path, 'rb')}
-
+            data = {'file': open(video_path, 'rb')}         
+            
             async with aiohttp.ClientSession() as session:
                 async with session.post(upload_url, data=data) as res:
                     response_text = await res.text()
-                    if (
-                        res.status == 200
-                        and response_text == '<retval>1</retval>'
-                    ):
-                        log.info(
-                            Fore.CYAN + f'Клип {video_path} успешно залит!'
-                        )
-                    elif (
-                        res.status == 200 and 'Flood control' in response_text
-                    ):
-                        log.error(
-                            'Превышен лимит запросов. Повторная попытка через час.'
-                        )
-                        return False
-                    else:
-                        log.error(
-                            f'Клип {video_path} не залит! Ответ: {response_text}'
-                        )
-                        return False
+                    response_json = json.loads(response_text)
+            await asyncio.sleep(15)
+            edit_result = self.vk_session.shortVideo.edit(
+                video_id=response_json['video_id'],
+                owner_id=response_json['owner_id'],
+                description=description,
+                privacy_view='all',
+                can_make_duet=1
+            )
+            publish_result = self.vk_session.shortVideo.publish(
+                video_id=response_json['video_id'],
+                owner_id=response_json['owner_id'],
+                license_agree=1,
+                publish_date=0,
+                wallpost=1
+            )  
+            if 'video' in publish_result:
+                log.info(
+                    Fore.CYAN + f'Клип {video_path} успешно залит!'
+                    )
+            else:
+                log.error(
+                    Fore.RED + f'Клип {video_path} не залит!'
+                    )
 
-        except Exception as e:
-            log.error(f'Ошибка загрузки: {e}')
+        except Exception:
+            log.error(f'Ошибка загрузки: {traceback.format_exc()}')
             return False
 
         return True
