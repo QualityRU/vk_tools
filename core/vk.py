@@ -249,11 +249,13 @@ class VKUploader(VKAPI):
                     )
         except vk_api.ApiError as e:
             if e.code == 100:
-                log.error(Fore.RED + "Ошибка VK API: Проверьте обязательные параметры:")
+                log.error(Fore.RED + "Ошибка VK API: Проверьте обязательные параметры")
             elif e.code == 3001:
                 log.error(Fore.RED + "Ошибка VK API: Видео еще не обработано. Увеличьте время ожидания")
             elif e.code == 9:
                 log.error(Fore.RED + "Ошибка VK API 9: Flood control. Слишком много загрузок Shorts.")
+                log.info(Fore.YELLOW + 'Ожидание перед повторной попыткой...')
+                await asyncio.sleep(900)
         except Exception:
             log.error(Fore.RED + f'Ошибка загрузки: {traceback.format_exc()}')
             return False
