@@ -1,0 +1,30 @@
+{
+    "groups":
+    {
+        "Автогараж": {
+            "cache_name": "autogarage",
+            "group_to_upload": "https://vk.com/autogaragefun",
+            "group_description": "Подписывайтесь! @autogaragefun\n#автомобили #мото #девушки #юмор #скетчи",
+            "accounts": {
+                "token": "vk1.a.9lrE2********"
+            },
+            "groups_from_download": [
+                "https://vk.com/avtoumar",
+                "https://vk.com/klubauto"
+                
+            ]
+        },
+        "Девушки": {
+            "cache_name": "girlseryday",
+            "group_to_upload": "https://vk.com/girlseryday",
+            "group_description": "Подписывайтесь! @girlseryday\n#девушки",
+            "accounts": {
+                "token": "vk1.a.9lrE2********"
+            },
+            "groups_from_download": [
+                "https://vk.com/fantasytopp",
+                "https://vk.com/she.entertainment"
+                ]
+            }
+    }
+}
