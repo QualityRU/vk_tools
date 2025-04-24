@@ -223,7 +223,7 @@ class VKUploader(VKAPI):
                     response_text = await res.text()
                     response_json = json.loads(response_text)
                     
-            await asyncio.sleep(20)
+            time.sleep(20)
             
             edit_result = self.vk_session.shortVideo.edit(
                 video_id=response_json['video_id'],
