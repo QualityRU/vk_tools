@@ -1,11 +1,11 @@
 import asyncio
+import json
 import os
 import random
 import re
 import time
 import traceback
 from os.path import getsize
-import json
 
 import aiohttp
 import vk_api
@@ -16,10 +16,8 @@ from core.logger import log
 
 
 class VKAPI:
-    def __init__(self, tokens=None, login=None, password=None):
-        self.tokens = tokens
-        self.login = login
-        self.password = password
+    def __init__(self, token=None):
+        self.token = token
         self.vk_session = None
 
     async def get_vk_api(self):
@@ -27,12 +25,7 @@ class VKAPI:
             return self.vk_session
 
         try:
-            vk = (
-                vk_api.VkApi(token=random.choice(self.tokens))
-                if self.tokens
-                else vk_api.VkApi(login=self.login, password=self.password)
-            )
-            vk.auth() if self.login and self.password else None
+            vk = vk_api.VkApi(token=self.token)
             self.vk_session = vk.get_api()
             return self.vk_session
         except vk_api.exceptions.ApiError:
@@ -194,7 +187,7 @@ class VKUploader(VKAPI):
                 if file.startswith(cache_name) and file.endswith('.mp4'):
                     video_path = os.path.join(root, file)
                     success = await self.upload_clip(
-                        abs(group_upload_id), video_path, description
+                        abs(group_upload_id), video_path, description, wallpost
                     )
                     if success:
                         os.remove(video_path)
@@ -216,44 +209,50 @@ class VKUploader(VKAPI):
                 file_size=getsize(video_path),
             )
             upload_url = a['upload_url']
-            data = {'file': open(video_path, 'rb')}         
-            
+            data = {'file': open(video_path, 'rb')}
+
             async with aiohttp.ClientSession() as session:
                 async with session.post(upload_url, data=data) as res:
                     response_text = await res.text()
                     response_json = json.loads(response_text)
-                    
+
             time.sleep(20)
-            
+
             edit_result = self.vk_session.shortVideo.edit(
                 video_id=response_json['video_id'],
                 owner_id=response_json['owner_id'],
                 description=description,
                 privacy_view='all',
-                can_make_duet=1
+                can_make_duet=1,
             )
+
             publish_result = self.vk_session.shortVideo.publish(
                 video_id=response_json['video_id'],
                 owner_id=response_json['owner_id'],
                 license_agree=1,
                 publish_date=0,
-                wallpost=1
-            )  
+                wallpost=wallpost,
+            )
             if 'video' in publish_result:
-                log.info(
-                    Fore.CYAN + f'Клип {video_path} успешно залит!'
-                    )
+                log.info(Fore.CYAN + f'Клип {video_path} успешно залит!')
             else:
-                log.error(
-                    Fore.RED + f'Клип {video_path} не залит!'
-                    )
+                log.error(Fore.RED + f'Клип {video_path} не залит!')
         except vk_api.ApiError as e:
             if e.code == 100:
-                log.error(Fore.RED + "Ошибка VK API: Проверьте обязательные параметры")
+                log.error(
+                    Fore.RED
+                    + 'Ошибка VK API: Проверьте обязательные параметры'
+                )
             elif e.code == 3001:
-                log.error(Fore.RED + "Ошибка VK API: Видео еще не обработано. Увеличьте время ожидания")
+                log.error(
+                    Fore.RED
+                    + 'Ошибка VK API: Видео еще не обработано. Увеличьте время ожидания'
+                )
             elif e.code == 9:
-                log.error(Fore.RED + "Ошибка VK API 9: Flood control. Слишком много загрузок Shorts.")
+                log.error(
+                    Fore.RED
+                    + 'Ошибка VK API 9: Flood control. Слишком много загрузок Shorts.'
+                )
                 log.info(Fore.YELLOW + 'Ожидание перед повторной попыткой...')
                 await asyncio.sleep(900)
         except Exception:

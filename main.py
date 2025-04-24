@@ -14,8 +14,8 @@ async def config():
 
 async def download(limit=5):
     cfg = await config()
-    tokens = cfg.groups.Автогараж.accounts.tokens
-    downloader = VKDownloader(tokens=tokens)
+    token = cfg.groups.Автогараж.accounts.token
+    downloader = VKDownloader(token=token)
     groups = cfg.groups.Автогараж.groups_from_download
     cache_name = cfg.groups.Автогараж.cache_name
 
@@ -29,15 +29,15 @@ async def download(limit=5):
 
 async def upload():
     cfg = await config()
-    tokens = cfg.groups.Автогараж.accounts.tokens
-    uploader = VKUploader(tokens=tokens)
+    token = cfg.groups.Автогараж.accounts.token
+    uploader = VKUploader(token=token)
     path = 'clips'
     group = cfg.groups.Автогараж.group_to_upload
     cache_name = cfg.groups.Автогараж.cache_name
     desc = cfg.groups.Автогараж.group_description
 
     log.info(Fore.YELLOW + 'Начинается выгрузка...')
-    await uploader.upload_videos(path, group, cache_name, desc, wallpost=0)
+    await uploader.upload_videos(path, group, cache_name, desc, wallpost=1)
     log.info(Fore.GREEN + 'Выгрузка завершена.')
 
 

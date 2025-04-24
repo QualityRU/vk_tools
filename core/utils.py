@@ -1,15 +1,6 @@
-import asyncio
 import json
-import re
 
 import aiofiles
-import vk_api
-from colorama import Fore, init
-from vk_api.exceptions import ApiError
-
-from core.logger import log
-
-init(autoreset=True)
 
 
 class MethodDict:
@@ -56,42 +47,3 @@ async def read_config(file_path):
         content = await file.read()
         config = json.loads(content)
     return config
-
-
-async def read_lines(file_path):
-    async with aiofiles.open(file_path, mode='r') as file:
-        return [line.strip() async for line in file]
-
-
-async def read_proxies(file_path):
-    proxies = []
-    async with aiofiles.open(file_path, mode='r') as file:
-        async for line in file:
-            proxy = line.strip()
-            if re.match(r'^\d+\.\d+\.\d+\.\d+:\d+:\w+:\w+$', proxy):
-                ip, port, username, password = proxy.split(':')
-                proxies.append(f'http://{username}:{password}@{ip}:{port}')
-            else:
-                log.error(f'Неверный формат прокси: {proxy}')
-    return proxies
-
-
-async def validate_token(token):
-    try:
-        vk_session = vk_api.VkApi(token=token)
-        vk = vk_session.get_api()
-        vk.account.getInfo()
-        return token
-    except (ApiError, Exception) as e:
-        log.error(f'Ошибка при проверке токена {token}: {e}')
-        return None
-
-
-async def get_valid_tokens(tokens):
-    return [
-        token
-        for token in await asyncio.gather(
-            *(validate_token(token) for token in tokens)
-        )
-        if token
-    ]
