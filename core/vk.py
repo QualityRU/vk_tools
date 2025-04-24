@@ -216,7 +216,7 @@ class VKUploader(VKAPI):
                     response_text = await res.text()
                     response_json = json.loads(response_text)
 
-            time.sleep(20)
+            time.sleep(60)
 
             edit_result = self.vk_session.shortVideo.edit(
                 video_id=response_json['video_id'],
@@ -239,11 +239,6 @@ class VKUploader(VKAPI):
                 log.error(Fore.RED + f'Клип {video_path} не залит!')
         except vk_api.ApiError as e:
             if e.code == 100:
-                log.error(
-                    Fore.RED
-                    + 'Ошибка VK API: Проверьте обязательные параметры'
-                )
-            elif e.code == 3001:
                 log.error(
                     Fore.RED
                     + 'Ошибка VK API: Видео еще не обработано. Увеличьте время ожидания'
