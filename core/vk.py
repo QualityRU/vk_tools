@@ -186,7 +186,7 @@ class VKUploader(VKAPI):
         group_to_upload,
         cache_name,
         description='',
-        wallpost=0,
+        wallpost=1,
     ):
         group_upload_id, _ = await self.get_group_id_and_name(group_to_upload)
         for root, _, files in os.walk(clips_path):
@@ -207,15 +207,12 @@ class VKUploader(VKAPI):
                     await asyncio.sleep(5)
 
     async def upload_clip(
-        self, group_upload_id, video_path, description='', wallpost=0
+        self, group_upload_id, video_path, description='', wallpost=1
     ):
         try:
             a = self.vk_session.shortVideo.create(
                 group_id=group_upload_id,
                 v=5.251,
-                # wallpost=wallpost,
-                wallpost=1,
-                description=description,
                 file_size=getsize(video_path),
             )
             upload_url = a['upload_url']
@@ -225,7 +222,9 @@ class VKUploader(VKAPI):
                 async with session.post(upload_url, data=data) as res:
                     response_text = await res.text()
                     response_json = json.loads(response_text)
-            await asyncio.sleep(15)
+                    
+            await asyncio.sleep(20)
+            
             edit_result = self.vk_session.shortVideo.edit(
                 video_id=response_json['video_id'],
                 owner_id=response_json['owner_id'],
@@ -248,9 +247,15 @@ class VKUploader(VKAPI):
                 log.error(
                     Fore.RED + f'Клип {video_path} не залит!'
                     )
-
+        except vk_api.ApiError as e:
+            if e.code == 100:
+                log.error(Fore.RED + "Ошибка VK API: Проверьте обязательные параметры:")
+            elif e.code == 3001:
+                log.error(Fore.RED + "Ошибка VK API: Видео еще не обработано. Увеличьте время ожидания")
+            elif e.code == 9:
+                log.error(Fore.RED + "Ошибка VK API 9: Flood control. Слишком много загрузок Shorts.")
         except Exception:
-            log.error(f'Ошибка загрузки: {traceback.format_exc()}')
+            log.error(Fore.RED + f'Ошибка загрузки: {traceback.format_exc()}')
             return False
 
         return True
