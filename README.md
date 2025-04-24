@@ -1,1 +1,1 @@
-# vk_tools
+Получить токен на https://vkhost.github.io/ в кнопке vk.com
