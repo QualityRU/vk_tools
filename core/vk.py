@@ -214,48 +214,70 @@ class VKUploader(VKAPI):
             async with aiohttp.ClientSession() as session:
                 async with session.post(upload_url, data=data) as res:
                     response_text = await res.text()
-                    response_json = json.loads(response_text)
 
-            time.sleep(120)
+                    if (
+                        res.status == 200
+                        and response_text == '<retval>1</retval>'
+                    ):
+                        log.info(
+                            Fore.CYAN + f'Клип {video_path} успешно залит!'
+                        )
+                        return True
+                    elif (
+                        res.status == 200 and 'Flood control' in response_text
+                    ):
+                        log.error(
+                            'Превышен лимит запросов. Повторная попытка через час.'
+                        )
+                        return False
+                    else:
+                        log.error(
+                            f'Клип {video_path} не залит! Ответ: {response_text}'
+                        )
+                        return False
 
-            edit_result = self.vk_session.shortVideo.edit(
-                video_id=response_json['video_id'],
-                owner_id=response_json['owner_id'],
-                description=description,
-                privacy_view='all',
-                can_make_duet=1,
-            )
+        #     response_json = json.loads(response_text)
 
-            publish_result = self.vk_session.shortVideo.publish(
-                video_id=response_json['video_id'],
-                owner_id=response_json['owner_id'],
-                license_agree=1,
-                publish_date=0,
-                wallpost=wallpost,
-            )
-            if 'video' in publish_result:
-                log.info(Fore.CYAN + f'Клип {video_path} успешно залит!')
-                return True
-            else:
-                log.error(Fore.RED + f'Клип {video_path} не залит!')
-        except vk_api.ApiError as e:
-            if e.code == 100:
-                log.error(
-                    Fore.RED
-                    + 'Ошибка VK API: Видео еще не обработано. Увеличьте время ожидания'
-                )
-            elif e.code == 9:
-                log.error(
-                    Fore.RED
-                    + 'Ошибка VK API 9: Flood control. Слишком много загрузок Shorts.'
-                )
-                log.info(Fore.YELLOW + 'Ожидание перед повторной попыткой...')
-                await asyncio.sleep(900)
-            elif e.code == 3:
-                log.error('Ошибка VK API: неизвестный метод')
-                return False
-            else:
-                log.error(traceback.format_exc())
+        #     time.sleep(120)
+
+        #     edit_result = self.vk_session.shortVideo.edit(
+        #         video_id=response_json['video_id'],
+        #         owner_id=response_json['owner_id'],
+        #         description=description,
+        #         privacy_view='all',
+        #         can_make_duet=1,
+        #     )
+
+        #     publish_result = self.vk_session.shortVideo.publish(
+        #         video_id=response_json['video_id'],
+        #         owner_id=response_json['owner_id'],
+        #         license_agree=1,
+        #         publish_date=0,
+        #         wallpost=wallpost,
+        #     )
+        #     if 'video' in publish_result:
+        #         log.info(Fore.CYAN + f'Клип {video_path} успешно залит!')
+        #         return True
+        #     else:
+        #         log.error(Fore.RED + f'Клип {video_path} не залит!')
+        # except vk_api.ApiError as e:
+        #     if e.code == 100:
+        #         log.error(
+        #             Fore.RED
+        #             + 'Ошибка VK API: Видео еще не обработано. Увеличьте время ожидания'
+        #         )
+        #     elif e.code == 9:
+        #         log.error(
+        #             Fore.RED
+        #             + 'Ошибка VK API 9: Flood control. Слишком много загрузок Shorts.'
+        #         )
+        #         log.info(Fore.YELLOW + 'Ожидание перед повторной попыткой...')
+        #         await asyncio.sleep(900)
+        #     elif e.code == 3:
+        #         log.error('Ошибка VK API: неизвестный метод')
+        #         return False
+        #     else:
+        #         log.error(traceback.format_exc())
         except Exception:
             log.error(Fore.RED + f'Ошибка загрузки: {traceback.format_exc()}')
             return False
