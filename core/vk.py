@@ -235,6 +235,7 @@ class VKUploader(VKAPI):
             )
             if 'video' in publish_result:
                 log.info(Fore.CYAN + f'Клип {video_path} успешно залит!')
+                return True
             else:
                 log.error(Fore.RED + f'Клип {video_path} не залит!')
         except vk_api.ApiError as e:
@@ -250,8 +251,11 @@ class VKUploader(VKAPI):
                 )
                 log.info(Fore.YELLOW + 'Ожидание перед повторной попыткой...')
                 await asyncio.sleep(900)
+            elif e.code == 3:
+                log.error('Ошибка VK API: неизвестный метод')
+                return False
+            else:
+                log.error(traceback.format_exc())
         except Exception:
             log.error(Fore.RED + f'Ошибка загрузки: {traceback.format_exc()}')
             return False
-
-        return True
