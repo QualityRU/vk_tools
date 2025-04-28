@@ -41,7 +41,6 @@ class VKAPI:
 
         try:
             group_name = group_link.strip('/').split('/')[-1]
-            print(group_name)
             group_info = self.vk_session.groups.getById(
                 group_id=group_name, fields='id'
             )[0]
@@ -96,6 +95,9 @@ class VKDownloader(VKAPI):
             while True:
                 video_urls_from_group = await self.get_random_videos(
                     group_id, group_link, cache_name, count_video
+                )
+                log.info(
+                    str(group_link) + ' ссылок ' + str(len(all_video_urls))
                 )
                 if video_urls_from_group:
                     all_video_urls.extend(video_urls_from_group)
@@ -215,71 +217,71 @@ class VKUploader(VKAPI):
 
             async with aiohttp.ClientSession() as session:
                 async with session.post(upload_url, data=data) as res:
-                    response_text = await res.text()
+                    res_text = await res.text()
 
-                    if (
-                        res.status == 200
-                        and response_text == '<retval>1</retval>'
-                    ):
-                        log.info(
-                            Fore.CYAN + f'Клип {video_path} успешно залит!'
-                        )
-                        return True
-                    elif (
-                        res.status == 200 and 'Flood control' in response_text
-                    ):
-                        log.error(
-                            'Превышен лимит запросов. Повторная попытка через час.'
-                        )
-                        return False
+                    if not self.contains_json(res_text):
+                        return self.upload_old(res_text, video_path)
                     else:
-                        log.error(
-                            f'Клип {video_path} не залит! Ответ: {response_text}'
+                        return await self.upload(
+                            res_text, video_path, description, wallpost
                         )
-                        return False
-
-        #     response_json = json.loads(response_text)
-
-        #     time.sleep(120)
-
-        #     edit_result = self.vk_session.shortVideo.edit(
-        #         video_id=response_json['video_id'],
-        #         owner_id=response_json['owner_id'],
-        #         description=description,
-        #         privacy_view='all',
-        #         can_make_duet=1,
-        #     )
-
-        #     publish_result = self.vk_session.shortVideo.publish(
-        #         video_id=response_json['video_id'],
-        #         owner_id=response_json['owner_id'],
-        #         license_agree=1,
-        #         publish_date=0,
-        #         wallpost=wallpost,
-        #     )
-        #     if 'video' in publish_result:
-        #         log.info(Fore.CYAN + f'Клип {video_path} успешно залит!')
-        #         return True
-        #     else:
-        #         log.error(Fore.RED + f'Клип {video_path} не залит!')
-        # except vk_api.ApiError as e:
-        #     if e.code == 100:
-        #         log.error(
-        #             Fore.RED
-        #             + 'Ошибка VK API: Видео еще не обработано. Увеличьте время ожидания'
-        #         )
-        #     elif e.code == 9:
-        #         log.error(
-        #             Fore.RED
-        #             + 'Ошибка VK API 9: Flood control. Слишком много загрузок Shorts.'
-        #         )
-        #         log.info(Fore.YELLOW + 'Ожидание перед повторной попыткой...')
-        #         await asyncio.sleep(900)
-        #     elif e.code == 3:
-        #         log.error('Ошибка VK API: неизвестный метод')
-        #         return False
-        #     else:
-        #         log.error(traceback.format_exc())
         except Exception:
             log.error(Fore.RED + f'Ошибка загрузки: {traceback.format_exc()}')
             return False
+
+    async def upload(self, res, video_path, description, wallpost):
+        try:
+            response_json = json.loads(res)
+
+            time.sleep(120)
+
+            edit_result = self.vk_session.shortVideo.edit(
+                video_id=response_json['video_id'],
+                owner_id=response_json['owner_id'],
+                description=description,
+                privacy_view='all',
+                can_make_duet=1,
+            )
+
+            publish_result = self.vk_session.shortVideo.publish(
+                video_id=response_json['video_id'],
+                owner_id=response_json['owner_id'],
+                license_agree=1,
+                publish_date=0,
+                wallpost=wallpost,
+            )
+            if 'video' in publish_result:
+                log.info(Fore.CYAN + f'Клип {video_path} успешно залит!')
+                return True
+            else:
+                log.error(Fore.RED + f'Клип {video_path} не залит!')
+        except vk_api.ApiError as e:
+            if e.code == 100:
+                log.error(Fore.RED + 'Ошибка VK API: Видео еще не обработано.')
+            elif e.code == 9:
+                log.error(Fore.RED + 'Ошибка VK API 9: Flood control...')
+                log.info(Fore.YELLOW + 'Ожидание перед повторной попыткой...')
+                await asyncio.sleep(900)
+            elif e.code == 3:
+                log.error('Ошибка VK API: неизвестный метод')
+                return False
+            else:
+                log.error(traceback.format_exc())
+
+    def upload_old(self, res, video_path):
+        if res == '<retval>1</retval>':
+            log.info(Fore.CYAN + f'Клип {video_path} успешно залит!')
+            return True
+        elif 'Flood control' in res:
+            log.error('Превышен лимит запросов. Повторная попытка через час.')
+            return False
+        else:
+            log.error(f'Клип {video_path} не залит! Ответ: {res}')
+            return False
+
+    def contains_json(self, str):
+        try:
+            json.loads(str)
+        except (json.JSONDecodeError, TypeError):
+            return False
+        return True
