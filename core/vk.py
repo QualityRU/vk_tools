@@ -207,6 +207,8 @@ class VKUploader(VKAPI):
                 group_id=group_upload_id,
                 v=5.251,
                 file_size=getsize(video_path),
+                wallpost=wallpost,
+                description=description,
             )
             upload_url = a['upload_url']
             data = {'file': open(video_path, 'rb')}
