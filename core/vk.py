@@ -4,8 +4,8 @@ import os
 import random
 import re
 import time
-import traceback
 from os.path import getsize
+from traceback import format_exc
 
 import aiohttp
 import vk_api
@@ -16,8 +16,10 @@ from core.logger import log
 
 
 class VKAPI:
-    def __init__(self, token=None):
+    def __init__(self, token=None, login=None, password=None):
         self.token = token
+        self.login = login
+        self.password = password
         self.vk_session = None
 
     async def get_vk_api(self):
@@ -25,14 +27,16 @@ class VKAPI:
             return self.vk_session
 
         try:
-            vk = vk_api.VkApi(token=self.token)
+            vk = (
+                vk_api.VkApi(token=self.token)
+                if self.token
+                else vk_api.VkApi(login=self.login, password=self.password)
+            )
+            vk.auth() if self.login and self.password else None
             self.vk_session = vk.get_api()
             return self.vk_session
-        except vk_api.exceptions.ApiError:
-            log.error('Ошибка авторизации')
-            raise ValueError('Ошибка авторизации')
-        except Exception as e:
-            log.error(f'Ошибка при авторизации: {e}')
+        except Exception:
+            log.error(f'Ошибка при авторизации: {format_exc()}')
             raise
 
     async def get_group_id_and_name(self, group_link):
@@ -48,12 +52,7 @@ class VKAPI:
             group_title = group_info['name']
             return group_id, group_title
         except Exception:
-            log.error(
-                f'Ошибка при получении данных группы: {traceback.format_exc()}'
-            )
-            raise ValueError(
-                f'Ошибка при получении данных группы: {traceback.format_exc()}'
-            )
+            log.error(f'Ошибка при получении данных группы: {format_exc()}')
 
 
 class VKDownloader(VKAPI):
@@ -111,9 +110,9 @@ class VKDownloader(VKAPI):
                 owner_id=group_id, album_id=-6, offset=0, count=1
             )
             return response.get('count', 0)
-        except Exception as e:
+        except Exception:
             log.error(
-                f'Ошибка при получении количества видео из группы {group_link}: {e}'
+                f'Ошибка при получении количества видео из {group_link}: {format_exc()}'
             )
             return 0
 
@@ -132,9 +131,9 @@ class VKDownloader(VKAPI):
                 for video in items
                 if not self.check_cache(video['id'], cache_name)
             ]
-        except Exception as e:
+        except Exception:
             log.error(
-                f'Ошибка при получении видео из группы {group_link}: {group_id}: {e}'
+                f'Ошибка при получении видео из группы {group_link}: {group_id}: {format_exc()}'
             )
             return []
 
@@ -171,7 +170,7 @@ class VKDownloader(VKAPI):
             log.info(Fore.CYAN + f'Клип успешно скачан: {output_file}')
             self.update_cache(video_id, cache_name)
         except Exception:
-            log.error(f'Ошибка скачивания: {traceback.format_exc()}')
+            log.error(f'Ошибка скачивания: {format_exc()}')
 
 
 class VKUploader(VKAPI):
@@ -226,7 +225,7 @@ class VKUploader(VKAPI):
                             res_text, video_path, description, wallpost
                         )
         except Exception:
-            log.error(Fore.RED + f'Ошибка загрузки: {traceback.format_exc()}')
+            log.error(f'Ошибка загрузки: {format_exc()}')
             return False
 
     async def upload(self, res, video_path, description, wallpost):
@@ -257,16 +256,17 @@ class VKUploader(VKAPI):
                 log.error(Fore.RED + f'Клип {video_path} не залит!')
         except vk_api.ApiError as e:
             if e.code == 100:
-                log.error(Fore.RED + 'Ошибка VK API: Видео еще не обработано.')
+                log.error('Ошибка VK API: Видео еще не обработано.')
+                return False
             elif e.code == 9:
-                log.error(Fore.RED + 'Ошибка VK API 9: Flood control...')
-                log.info(Fore.YELLOW + 'Ожидание перед повторной попыткой...')
-                await asyncio.sleep(900)
+                log.error('Ошибка VK API 9: Flood control...')
+                return False
             elif e.code == 3:
                 log.error('Ошибка VK API: неизвестный метод')
                 return False
             else:
-                log.error(traceback.format_exc())
+                log.error(format_exc())
+                return False
 
     def upload_old(self, res, video_path):
         if res == '<retval>1</retval>':

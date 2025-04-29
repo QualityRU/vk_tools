@@ -1,5 +1,5 @@
 import asyncio
-import traceback
+from traceback import format_exc
 
 from colorama import Fore
 
@@ -41,9 +41,9 @@ async def upload():
 
         uploader = VKUploader(token=token)
 
-        log.info(Fore.YELLOW + 'Начинается выгрузка...')
+        log.info(Fore.YELLOW + f'[{cache_name}] Начинается выгрузка...')
         await uploader.upload_videos(path, group, cache_name, desc, wallpost=1)
-        log.info(Fore.GREEN + 'Выгрузка завершена.')
+        log.info(Fore.GREEN + f'[{cache_name}] Выгрузка завершена.')
 
 
 async def schedule(func, interval, *args):
@@ -59,11 +59,11 @@ async def main():
             schedule(func=upload, interval=10800),
         )
     except Exception:
-        log.error(Fore.RED + f'Ошибка: {traceback.format_exc()}')
+        log.error(Fore.RED + f'Ошибка: {format_exc()}')
 
 
 if __name__ == '__main__':
     try:
         asyncio.run(main())
     except Exception:
-        log.error(Fore.RED + f'Произошла ошибка: {traceback.format_exc()}')
+        log.error(Fore.RED + f'Произошла ошибка: {format_exc()}')

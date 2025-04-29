@@ -165,3 +165,4 @@ config.json
 clips
 test*
 cache
+vk_config.v2.json
