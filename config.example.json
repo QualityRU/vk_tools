@@ -1,4 +1,9 @@
 {
+    "telegram": 
+    {
+        "TELEGRAM_TOKEN": "123456678:IOHfgPOUIGDSlsdbf",
+        "TELEGRAM_CHAT_ID": "12345"
+    },
     "groups":
     {
         "Автогараж": {

@@ -8,12 +8,12 @@ from core.utils import MethodDict, read_config
 from core.vk import VKDownloader, VKUploader
 
 
-async def config():
-    return MethodDict(await read_config('config.json'))
+def config():
+    return MethodDict(read_config('config.json'))
 
 
 async def download(limit=5):
-    cfg = await config()
+    cfg = config()
     for k, v in cfg.groups.items():
         token = v.accounts.token
         groups = v.groups_from_download
@@ -30,7 +30,7 @@ async def download(limit=5):
 
 
 async def upload():
-    cfg = await config()
+    cfg = config()
     for k, v in cfg.groups.items():
         token = v.accounts.token
         cache_name = v.cache_name
