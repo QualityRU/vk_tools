@@ -52,7 +52,7 @@ class VKAPI:
             group_title = group_info['name']
             return group_id, group_title
         except Exception:
-            log.error(f'Ошибка при получении данных группы: {format_exc()}')
+            log.error(f'Ошибка при получении данных группы:\n{format_exc()}')
 
 
 class VKDownloader(VKAPI):
@@ -80,7 +80,7 @@ class VKDownloader(VKAPI):
                 group_link
             )
 
-            if abs(group_id) <= 0:  # Проверка на корректность group_id
+            if abs(group_id) <= 0:
                 log.error(
                     f'Некорректный group_id: {group_id} для группы {group_link}'
                 )
@@ -112,7 +112,7 @@ class VKDownloader(VKAPI):
             return response.get('count', 0)
         except Exception:
             log.error(
-                f'Ошибка при получении количества видео из {group_link}: {format_exc()}'
+                f'Ошибка при получении количества видео из {group_link}:\n{format_exc()}'
             )
             return 0
 
@@ -133,7 +133,7 @@ class VKDownloader(VKAPI):
             ]
         except Exception:
             log.error(
-                f'Ошибка при получении видео из группы {group_link}: {group_id}: {format_exc()}'
+                f'Ошибка при получении видео из группы {group_link}: {group_id}:\n{format_exc()}'
             )
             return []
 
@@ -169,8 +169,23 @@ class VKDownloader(VKAPI):
                 ydl.download([video_url])
             log.info(Fore.CYAN + f'Клип успешно скачан: {output_file}')
             self.update_cache(video_id, cache_name)
+        except yt_dlp.DownloadError as e:
+            if 'Algorithms determined' in str(e):
+                owner_id = video_url.split('oid=')[1].split('&')[0]
+                video_id = video_url.split('id=')[2].split('&')[0]
+                video_url = f'https://vk.com/video{owner_id}_{video_id}'
+
+                try:
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        ydl.download([video_url])
+                    log.info(Fore.CYAN + f'Клип успешно скачан: {output_file}')
+                    self.update_cache(video_id, cache_name)
+                except Exception:
+                    log.error(
+                        f'Ошибка скачивания:\n{format_exc()}\n{video_url}'
+                    )
         except Exception:
-            log.error(f'Ошибка скачивания: {format_exc()}')
+            log.error(f'Ошибка скачивания:\n{format_exc()}\n{video_url}')
 
 
 class VKUploader(VKAPI):
@@ -225,7 +240,7 @@ class VKUploader(VKAPI):
                             res_text, video_path, description, wallpost
                         )
         except Exception:
-            log.error(f'Ошибка загрузки: {format_exc()}')
+            log.error(f'Ошибка загрузки:\n{format_exc()}')
             return False
 
     async def upload(self, res, video_path, description, wallpost):
@@ -267,6 +282,9 @@ class VKUploader(VKAPI):
             else:
                 log.error(format_exc())
                 return False
+        except Exception:
+            log.error(f'Ошибка загрузки:\n{format_exc()}')
+            return False
 
     def upload_old(self, res, video_path):
         if res == '<retval>1</retval>':

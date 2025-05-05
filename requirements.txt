@@ -28,7 +28,7 @@ pyflakes==2.4.0
 requests==2.32.3
 tomli==2.0.1
 urllib3==2.4.0
-vk-api==11.9.9
+git+https://github.com/python273/vk_api.git@master
 websockets==13.0.1
 yarl==1.20.0
-yt-dlp==2025.3.31
+yt-dlp==2025.4.30
