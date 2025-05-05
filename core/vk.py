@@ -28,9 +28,13 @@ class VKAPI:
 
         try:
             vk = (
-                vk_api.VkApi(token=self.token)
+                vk_api.VkApi(token=self.token, api_version='5.251')
                 if self.token
-                else vk_api.VkApi(login=self.login, password=self.password)
+                else vk_api.VkApi(
+                    login=self.login,
+                    password=self.password,
+                    api_version='5.251',
+                )
             )
             vk.auth() if self.login and self.password else None
             self.vk_session = vk.get_api()
@@ -46,10 +50,10 @@ class VKAPI:
         try:
             group_name = group_link.strip('/').split('/')[-1]
             group_info = self.vk_session.groups.getById(
-                group_id=group_name, fields='id'
-            )[0]
-            group_id = -group_info['id']
-            group_title = group_info['name']
+                group_ids=group_name, fields='id'
+            )
+            group_id = -group_info['groups'][0]['id']
+            group_title = group_info['groups'][0]['name']
             return group_id, group_title
         except Exception:
             log.error(f'Ошибка при получении данных группы:\n{format_exc()}')

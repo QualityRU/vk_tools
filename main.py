@@ -53,10 +53,11 @@ async def schedule(func, interval, *args):
 
 
 async def main():
+    cfg = config()
     try:
         await asyncio.gather(
-            schedule(func=download, interval=18000),
-            schedule(func=upload, interval=18000),
+            schedule(func=download, interval=cfg.UPDATE_SEC),
+            schedule(func=upload, interval=cfg.UPDATE_SEC),
         )
     except Exception:
         log.error(Fore.RED + f'Ошибка: {format_exc()}')
