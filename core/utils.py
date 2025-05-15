@@ -1,7 +1,5 @@
 import json
 
-import aiofiles
-
 
 class MethodDict:
     def __init__(self, data=None):

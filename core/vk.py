@@ -56,7 +56,9 @@ class VKAPI:
             group_title = group_info['groups'][0]['name']
             return group_id, group_title
         except Exception:
-            log.error(f'Ошибка при получении данных группы:\n{format_exc()}')
+            log.error(
+                f'Ошибка при получении данных группы:\n{format_exc()}\n{group_link}'
+            )
 
 
 class VKDownloader(VKAPI):
@@ -80,10 +82,14 @@ class VKDownloader(VKAPI):
         random.shuffle(group_links)
 
         for group_link in group_links:
-            group_id, group_title = await self.get_group_id_and_name(
-                group_link
-            )
-
+            try:
+                group_id, group_title = await self.get_group_id_and_name(
+                    group_link
+                )
+            except Exception:
+                log.error(
+                    f'Ошибка при получении данных группы:\n{format_exc()}\n{group_link}'
+                )
             if abs(group_id) <= 0:
                 log.error(
                     f'Некорректный group_id: {group_id} для группы {group_link}'
