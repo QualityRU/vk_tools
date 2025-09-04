@@ -183,7 +183,7 @@ class VKDownloader(VKAPI):
             if 'Algorithms determined' in str(e):
                 owner_id = video_url.split('oid=')[1].split('&')[0]
                 video_id = video_url.split('id=')[2].split('&')[0]
-                video_url = f'https://vk.com/video{owner_id}_{video_id}'
+                video_url = f'https://vk.ru/video{owner_id}_{video_id}'
 
                 try:
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
