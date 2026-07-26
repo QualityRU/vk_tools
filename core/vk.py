@@ -28,12 +28,12 @@ class VKAPI:
 
         try:
             vk = (
-                vk_api.VkApi(token=self.token, api_version='5.251')
+                vk_api.VkApi(token=self.token, api_version='5.282')
                 if self.token
                 else vk_api.VkApi(
                     login=self.login,
                     password=self.password,
-                    api_version='5.251',
+                    api_version='5.282',
                 )
             )
             vk.auth() if self.login and self.password else None
@@ -116,8 +116,14 @@ class VKDownloader(VKAPI):
 
     async def get_video_count(self, group_id, group_link):
         try:
-            response = self.vk_session.video.get(
-                owner_id=group_id, album_id=-6, offset=0, count=1
+            # response = self.vk_session.video.get(
+            #     owner_id=group_id, album_id=-6, offset=0, count=1
+            # )
+            response = self.vk_session.shortVideo.getOwnerVideos(
+                owner_id=group_id,
+                track_code="",
+                fields="photo_50,photo_100,photo_200,photo_400,is_nft,about,description,followers_count,is_closed,verified,screen_name,friend_status,is_subscribed,blacklisted,domain,sex,can_write_private_message,first_name_gen,last_name_gen,first_name_acc,is_service_account,is_nft_photo,trust_mark,admin_level,member_status,members_count,is_member,ban_info,can_message,video_lives_data",
+                count=1
             )
             return response.get('count', 0)
         except Exception:
@@ -131,10 +137,15 @@ class VKDownloader(VKAPI):
     ):
         try:
             offset = random.randint(0, max(0, count_video - 1))
-            response = self.vk_session.video.get(
-                owner_id=group_id, album_id=-6, offset=offset, count=200
+            # response = self.vk_session.video.get(
+            #     owner_id=group_id, album_id=-6, offset=offset, count=200
+            # )
+            response = self.vk_session.shortVideo.getOwnerVideos(
+                owner_id=group_id,
+                track_code="",
+                fields="photo_50,photo_100,photo_200,photo_400,is_nft,about,description,followers_count,is_closed,verified,screen_name,friend_status,is_subscribed,blacklisted,domain,sex,can_write_private_message,first_name_gen,last_name_gen,first_name_acc,is_service_account,is_nft_photo,trust_mark,admin_level,member_status,members_count,is_member,ban_info,can_message,video_lives_data",
+                count=100
             )
-
             items = response.get('items', [])
             return [
                 (video['player'], video['id'])
@@ -175,6 +186,11 @@ class VKDownloader(VKAPI):
         }
 
         try:
+            owner_id = video_url.split('oid=')[1].split('&')[0]
+            video_id = video_url.split('id=')[2].split('&')[0]
+            video_url = f'https://vk.ru/video{owner_id}_{video_id}'
+            log.info(video_url)
+            
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([video_url])
             log.info(Fore.CYAN + f'Клип успешно скачан: {output_file}')
@@ -184,6 +200,7 @@ class VKDownloader(VKAPI):
                 owner_id = video_url.split('oid=')[1].split('&')[0]
                 video_id = video_url.split('id=')[2].split('&')[0]
                 video_url = f'https://vk.ru/video{owner_id}_{video_id}'
+                log.info(video_url)
 
                 try:
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -231,7 +248,7 @@ class VKUploader(VKAPI):
         try:
             a = self.vk_session.shortVideo.create(
                 group_id=group_upload_id,
-                v=5.251,
+                v=5.282,
                 file_size=getsize(video_path),
                 wallpost=wallpost,
                 description=description,
