@@ -1,4 +1,5 @@
 import asyncio
+import os
 from traceback import format_exc
 
 from colorama import Fore
@@ -12,52 +13,65 @@ def config():
     return MethodDict(read_config('config.json'))
 
 
-async def download(limit=5):
+async def download_and_upload(limit=5):
     cfg = config()
-    for k, v in cfg.groups.items():
+    for _, v in cfg.groups.items():
         token = v.accounts.token
         groups = v.groups_from_download
         cache_name = v.cache_name
+        group_to_upload = v.group_to_upload
+        description = v.group_description
 
         downloader = VKDownloader(token=token)
-
-        log.info(Fore.YELLOW + f'[{cache_name}] Начинается загрузка...')
-        urls = await downloader.fetch_video_urls(groups, cache_name, limit)
-        await asyncio.gather(
-            *[downloader.download_video(url, cache_name) for url in urls]
-        )
-        log.info(Fore.GREEN + f'[{cache_name}] Загрузка завершена.')
-
-
-async def upload():
-    cfg = config()
-    for k, v in cfg.groups.items():
-        token = v.accounts.token
-        cache_name = v.cache_name
-        path = 'clips'
-        group = v.group_to_upload
-        cache_name = v.cache_name
-        desc = v.group_description
-
         uploader = VKUploader(token=token)
 
-        log.info(Fore.YELLOW + f'[{cache_name}] Начинается выгрузка...')
-        await uploader.upload_videos(path, group, cache_name, desc, wallpost=1)
-        log.info(Fore.GREEN + f'[{cache_name}] Выгрузка завершена.')
+        try:
+            log.info(Fore.YELLOW + f'[{cache_name}] Начинается обработка...')
+            target_group = await uploader.get_group_id_and_name(group_to_upload)
+            if target_group is None:
+                continue
+
+            await uploader.upload_videos(
+                'clips', group_to_upload, cache_name, description, wallpost=1
+            )
+            urls = await downloader.fetch_video_urls(groups, cache_name, limit)
+            for video_url, cache_key in urls:
+                video_path = await downloader.download_video(
+                    video_url, cache_name, cache_key
+                )
+                if video_path is None:
+                    continue
+
+                success = await uploader.upload_clip(
+                    abs(target_group[0]), video_path, description, wallpost=1
+                )
+                if success:
+                    os.remove(video_path)
+                else:
+                    log.warning(
+                        Fore.YELLOW
+                        + f'[{cache_name}] Файл сохранён для повторной выгрузки: '
+                        + video_path
+                    )
+                await asyncio.sleep(5)
+            log.info(Fore.GREEN + f'[{cache_name}] Обработка завершена.')
+        except Exception:
+            log.error(
+                Fore.RED + f'[{cache_name}] Ошибка обработки:\n{format_exc()}'
+            )
 
 
 async def schedule(func, interval, *args):
-    await func(*args)
-    await asyncio.sleep(interval)
-    await schedule(func, interval, *args)
+    while True:
+        await func(*args)
+        await asyncio.sleep(interval)
 
 
 async def main():
     cfg = config()
     try:
         await asyncio.gather(
-            schedule(func=download, interval=cfg.UPDATE_SEC),
-            schedule(func=upload, interval=cfg.UPDATE_SEC),
+            schedule(func=download_and_upload, interval=cfg.UPDATE_SEC),
         )
     except Exception:
         log.error(Fore.RED + f'Ошибка: {format_exc()}')

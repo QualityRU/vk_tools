@@ -3,9 +3,9 @@ import json
 import os
 import random
 import re
-import time
 from os.path import getsize
 from traceback import format_exc
+from urllib.parse import parse_qs, urlparse
 
 import aiohttp
 import vk_api
@@ -27,17 +27,21 @@ class VKAPI:
             return self.vk_session
 
         try:
-            vk = (
-                vk_api.VkApi(token=self.token, api_version='5.282')
-                if self.token
-                else vk_api.VkApi(
-                    login=self.login,
-                    password=self.password,
-                    api_version='5.282',
+            def create_api():
+                vk = (
+                    vk_api.VkApi(token=self.token, api_version='5.282')
+                    if self.token
+                    else vk_api.VkApi(
+                        login=self.login,
+                        password=self.password,
+                        api_version='5.282',
+                    )
                 )
-            )
-            vk.auth() if self.login and self.password else None
-            self.vk_session = vk.get_api()
+                if self.login and self.password:
+                    vk.auth()
+                return vk.get_api()
+
+            self.vk_session = await asyncio.to_thread(create_api)
             return self.vk_session
         except Exception:
             log.error(f'Ошибка при авторизации: {format_exc()}')
@@ -49,8 +53,10 @@ class VKAPI:
 
         try:
             group_name = group_link.strip('/').split('/')[-1]
-            group_info = self.vk_session.groups.getById(
-                group_ids=group_name, fields='id'
+            group_info = await asyncio.to_thread(
+                self.vk_session.groups.getById,
+                group_ids=group_name,
+                fields='id',
             )
             group_id = -group_info['groups'][0]['id']
             group_title = group_info['groups'][0]['name']
@@ -59,6 +65,7 @@ class VKAPI:
             log.error(
                 f'Ошибка при получении данных группы:\n{format_exc()}\n{group_link}'
             )
+            return None
 
 
 class VKDownloader(VKAPI):
@@ -69,11 +76,11 @@ class VKDownloader(VKAPI):
         )
         random.shuffle(all_video_urls)
 
-        for video_url, video_id in all_video_urls:
+        for video_url, cache_key in all_video_urls:
             if len(video_urls) >= video_limit:
                 break
-            if not self.check_cache(video_id, cache_name):
-                video_urls.append(video_url)
+            if not self.check_cache(cache_key, cache_name):
+                video_urls.append((video_url, cache_key))
 
         return video_urls[:video_limit]
 
@@ -83,14 +90,17 @@ class VKDownloader(VKAPI):
 
         for group_link in group_links:
             try:
-                group_id, group_title = await self.get_group_id_and_name(
-                    group_link
-                )
+                group = await self.get_group_id_and_name(group_link)
             except Exception:
                 log.error(
                     f'Ошибка при получении данных группы:\n{format_exc()}\n{group_link}'
                 )
-            if abs(group_id) <= 0:
+                continue
+            if group is None:
+                continue
+
+            group_id, _ = group
+            if group_id >= 0:
                 log.error(
                     f'Некорректный group_id: {group_id} для группы {group_link}'
                 )
@@ -101,7 +111,8 @@ class VKDownloader(VKAPI):
             if count_video == 0:
                 continue
 
-            while True:
+            attempts = min(10, max(1, (count_video + 99) // 100))
+            for _ in range(attempts):
                 video_urls_from_group = await self.get_random_videos(
                     group_id, group_link, cache_name, count_video
                 )
@@ -111,19 +122,18 @@ class VKDownloader(VKAPI):
                 if video_urls_from_group:
                     all_video_urls.extend(video_urls_from_group)
                     break
+            else:
+                log.info(f'Нет новых роликов в группе {group_link}.')
 
         return all_video_urls
 
     async def get_video_count(self, group_id, group_link):
         try:
-            # response = self.vk_session.video.get(
-            #     owner_id=group_id, album_id=-6, offset=0, count=1
-            # )
-            response = self.vk_session.shortVideo.getOwnerVideos(
+            response = await asyncio.to_thread(
+                self.vk_session.shortVideo.getOwnerVideos,
                 owner_id=group_id,
-                track_code="",
-                fields="photo_50,photo_100,photo_200,photo_400,is_nft,about,description,followers_count,is_closed,verified,screen_name,friend_status,is_subscribed,blacklisted,domain,sex,can_write_private_message,first_name_gen,last_name_gen,first_name_acc,is_service_account,is_nft_photo,trust_mark,admin_level,member_status,members_count,is_member,ban_info,can_message,video_lives_data",
-                count=1
+                track_code='',
+                count=1,
             )
             return response.get('count', 0)
         except Exception:
@@ -136,21 +146,24 @@ class VKDownloader(VKAPI):
         self, group_id, group_link, cache_name, count_video
     ):
         try:
-            offset = random.randint(0, max(0, count_video - 1))
-            # response = self.vk_session.video.get(
-            #     owner_id=group_id, album_id=-6, offset=offset, count=200
-            # )
-            response = self.vk_session.shortVideo.getOwnerVideos(
+            offset = random.randint(0, max(0, count_video - 100))
+            response = await asyncio.to_thread(
+                self.vk_session.shortVideo.getOwnerVideos,
                 owner_id=group_id,
-                track_code="",
-                fields="photo_50,photo_100,photo_200,photo_400,is_nft,about,description,followers_count,is_closed,verified,screen_name,friend_status,is_subscribed,blacklisted,domain,sex,can_write_private_message,first_name_gen,last_name_gen,first_name_acc,is_service_account,is_nft_photo,trust_mark,admin_level,member_status,members_count,is_member,ban_info,can_message,video_lives_data",
-                count=100
+                track_code='',
+                offset=offset,
+                count=100,
             )
             items = response.get('items', [])
             return [
-                (video['player'], video['id'])
+                (
+                    video['player'],
+                    f"{video.get('owner_id', group_id)}_{video['id']}",
+                )
                 for video in items
-                if not self.check_cache(video['id'], cache_name)
+                if not self.check_cache(
+                    f"{video.get('owner_id', group_id)}_{video['id']}", cache_name
+                )
             ]
         except Exception:
             log.error(
@@ -166,53 +179,57 @@ class VKDownloader(VKAPI):
             open(cache_file, 'w').close()
 
         with open(cache_file, 'r') as file:
-            return video_id in file.read().splitlines()
+            cached_ids = set(file.read().splitlines())
+        legacy_id = video_id.rsplit('_', 1)[-1]
+        return video_id in cached_ids or legacy_id in cached_ids
 
     def update_cache(self, video_id, cache_name):
         cache_file = os.path.join('cache', f'{cache_name}.txt')
         with open(cache_file, 'a') as file:
             file.write(f'{video_id}\n')
 
-    async def download_video(self, video_url, cache_name):
-        video_id = re.search(r'id=(\d+)', video_url).group(1)
+    @staticmethod
+    def video_identifiers(video_url):
+        query = parse_qs(urlparse(video_url).query)
+        owner_id = query.get('oid', [None])[0]
+        video_id = query.get('id', [None])[0]
+        if owner_id and video_id:
+            return owner_id, video_id
+
+        match = re.search(r'video(-?\d+)_(\d+)', video_url)
+        if match:
+            return match.groups()
+        raise ValueError(f'Не удалось извлечь идентификаторы видео из {video_url}')
+
+    async def download_video(self, video_url, cache_name, cache_key=None):
+        owner_id, video_id = self.video_identifiers(video_url)
         save_dir = os.path.join('clips')
         os.makedirs(save_dir, exist_ok=True)
-        output_file = os.path.join(save_dir, f'{cache_name}_{video_id}.mp4')
+        output_file = os.path.join(save_dir, f'{cache_name}_{owner_id}_{video_id}.mp4')
 
         ydl_opts = {
             'outtmpl': output_file,
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]',
             'quiet': True,
         }
+        canonical_url = f'https://vk.ru/video{owner_id}_{video_id}'
 
         try:
-            owner_id = video_url.split('oid=')[1].split('&')[0]
-            video_id = video_url.split('id=')[2].split('&')[0]
-            video_url = f'https://vk.ru/video{owner_id}_{video_id}'
-            log.info(video_url)
-            
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([video_url])
-            log.info(Fore.CYAN + f'Клип успешно скачан: {output_file}')
-            self.update_cache(video_id, cache_name)
-        except yt_dlp.DownloadError as e:
-            if 'Algorithms determined' in str(e):
-                owner_id = video_url.split('oid=')[1].split('&')[0]
-                video_id = video_url.split('id=')[2].split('&')[0]
-                video_url = f'https://vk.ru/video{owner_id}_{video_id}'
-                log.info(video_url)
+            log.info(canonical_url)
 
-                try:
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        ydl.download([video_url])
-                    log.info(Fore.CYAN + f'Клип успешно скачан: {output_file}')
-                    self.update_cache(video_id, cache_name)
-                except Exception:
-                    log.error(
-                        f'Ошибка скачивания:\n{format_exc()}\n{video_url}'
-                    )
+            def run_download():
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([canonical_url])
+
+            await asyncio.to_thread(run_download)
+            log.info(Fore.CYAN + f'Клип успешно скачан: {output_file}')
+            self.update_cache(cache_key or f'{owner_id}_{video_id}', cache_name)
+            return output_file
+        except yt_dlp.DownloadError as e:
+            log.error(f'Ошибка скачивания: {e}\n{canonical_url}')
         except Exception:
-            log.error(f'Ошибка скачивания:\n{format_exc()}\n{video_url}')
+            log.error(f'Ошибка скачивания:\n{format_exc()}\n{canonical_url}')
+        return None
 
 
 class VKUploader(VKAPI):
@@ -224,7 +241,10 @@ class VKUploader(VKAPI):
         description='',
         wallpost=1,
     ):
-        group_upload_id, _ = await self.get_group_id_and_name(group_to_upload)
+        group = await self.get_group_id_and_name(group_to_upload)
+        if group is None:
+            return
+        group_upload_id, _ = group
         for root, _, files in os.walk(clips_path):
             for file in files:
                 if file.startswith(cache_name) and file.endswith('.mp4'):
@@ -242,11 +262,18 @@ class VKUploader(VKAPI):
                         await asyncio.sleep(900)
                     await asyncio.sleep(5)
 
+    async def upload_video_path(self, group_to_upload, video_path, description='', wallpost=1):
+        group = await self.get_group_id_and_name(group_to_upload)
+        if group is None:
+            return False
+        return await self.upload_clip(abs(group[0]), video_path, description, wallpost)
+
     async def upload_clip(
         self, group_upload_id, video_path, description='', wallpost=1
     ):
         try:
-            a = self.vk_session.shortVideo.create(
+            a = await asyncio.to_thread(
+                self.vk_session.shortVideo.create,
                 group_id=group_upload_id,
                 v=5.282,
                 file_size=getsize(video_path),
@@ -254,18 +281,15 @@ class VKUploader(VKAPI):
                 description=description,
             )
             upload_url = a['upload_url']
-            data = {'file': open(video_path, 'rb')}
+            with open(video_path, 'rb') as file:
+                data = {'file': file}
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(upload_url, data=data) as res:
+                        res_text = await res.text()
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(upload_url, data=data) as res:
-                    res_text = await res.text()
-
-                    if not self.contains_json(res_text):
-                        return self.upload_old(res_text, video_path)
-                    else:
-                        return await self.upload(
-                            res_text, video_path, description, wallpost
-                        )
+            if not self.contains_json(res_text):
+                return self.upload_old(res_text, video_path)
+            return await self.upload(res_text, video_path, description, wallpost)
         except Exception:
             log.error(f'Ошибка загрузки:\n{format_exc()}')
             return False
@@ -274,9 +298,10 @@ class VKUploader(VKAPI):
         try:
             response_json = json.loads(res)
 
-            time.sleep(120)
+            await asyncio.sleep(120)
 
-            edit_result = self.vk_session.shortVideo.edit(
+            await asyncio.to_thread(
+                self.vk_session.shortVideo.edit,
                 video_id=response_json['video_id'],
                 owner_id=response_json['owner_id'],
                 description=description,
@@ -284,7 +309,8 @@ class VKUploader(VKAPI):
                 can_make_duet=1,
             )
 
-            publish_result = self.vk_session.shortVideo.publish(
+            publish_result = await asyncio.to_thread(
+                self.vk_session.shortVideo.publish,
                 video_id=response_json['video_id'],
                 owner_id=response_json['owner_id'],
                 license_agree=1,

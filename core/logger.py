@@ -1,4 +1,5 @@
 import logging
+import threading
 
 import requests
 from colorlog import ColoredFormatter
@@ -16,18 +17,25 @@ LOGFORMAT = '%(log_color)s[VK Tools Bot]%(reset)s[%(log_color)s%(levelname)s%(re
 
 class TelegramHandler(logging.Handler):
     def emit(self, record):
-        cfg = config()
         try:
+            cfg = config()
             message = f'[{record.levelname}] {record.getMessage()}'
             if record.levelno >= logging.ERROR:
-                requests.post(
-                    f'https://api.telegram.org/bot{cfg.telegram.TELEGRAM_TOKEN}/sendMessage',
-                    data={
-                        'chat_id': cfg.telegram.TELEGRAM_CHAT_ID,
-                        'text': message,
-                        'parse_mode': 'HTML',
-                    },
-                )
+                def send_message():
+                    try:
+                        requests.post(
+                            f'https://api.telegram.org/bot{cfg.telegram.TELEGRAM_TOKEN}/sendMessage',
+                            data={
+                                'chat_id': cfg.telegram.TELEGRAM_CHAT_ID,
+                                'text': message,
+                                'parse_mode': 'HTML',
+                            },
+                            timeout=10,
+                        )
+                    except requests.RequestException as error:
+                        print('Failed to send log to Telegram:', error)
+
+                threading.Thread(target=send_message, daemon=True).start()
         except Exception as e:
             print('Failed to send log to Telegram:', e)
 
